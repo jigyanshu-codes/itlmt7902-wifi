@@ -263,7 +263,7 @@ int itlmt7922::mcuSend(uint32_t cmd,const void *payload,size_t length,bool wantR
             handleRxPacket(packet,n); ringRelease(rxData,bi); if (shouldStop()) return kStopped;
         }
         if (shouldStop()) return kStopped;
-        IODelay(50);
+        if ((uint32_t)(nowMs()-start)>10) IOSleep(1); else IODelay(50);
     } while ((uint32_t)(nowMs()-start)<timeoutMs);
     m1log("MCU timeout cid=%02x seq=%u rx0 dma=%u rx4 dma=%u LP=%08x",(unsigned)(cmd&255),seq,
         rd(rxEvt.regs+Q_DMA_IDX),rd(rxWa.regs+Q_DMA_IDX),rdA(MT_CONN_ON_LPCTL));

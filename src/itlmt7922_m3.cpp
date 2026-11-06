@@ -126,7 +126,7 @@ void itlmt7922::m3Pump(uint32_t ms)
 {
     for (uint32_t i = 0; i < ms && !shouldStop() && !firmwareFault; i++) {
         m3PumpOnce();
-        if (m3sleepy) IOSleep(1); else IODelay(1000);
+        IOSleep(1);
     }
 }
 
@@ -673,21 +673,30 @@ int itlmt7922::m3Run1()
     int prepRc = m3HwPrep();
     if (prepRc) { m3Publish("hw-prep-fail"); return prepRc; }
     int setupRc=m3Bss(false);
-    if (!setupRc) setupRc=m3Sta(0,true,0);
-    if (!setupRc) setupRc=m3Roc(true);
-    if (setupRc) return setupRc;
-    for (int i = 0; i < 1000 && !rocGrant && !shouldStop() && !firmwareFault; i++) m3Pump(1);
+    m3log("m3Bss rc=%d", setupRc);
+    if (!setupRc) {
+        setupRc=m3Sta(0,true,0);
+        m3log("m3Sta rc=%d", setupRc);
+    }
+    if (!setupRc) {
+        setupRc=m3Roc(true);
+        m3log("m3Roc rc=%d", setupRc);
+    }
+    if (setupRc && !is_mt7902) return setupRc;
+    for (int i = 0; i < 300 && !rocGrant && !shouldStop() && !firmwareFault; i++) m3Pump(1);
     m3log("roc grant=%d status=%u", rocGrant ? 1 : 0, rocStatus);
-    if (!rocGrant || rocStatus != 0) { m3Publish("roc-fail"); m3Roc(false); return ITL_EIO; }
+    if (!is_mt7902 && (!rocGrant || rocStatus != 0)) { m3Publish("roc-fail"); m3Roc(false); return ITL_EIO; }
 
     // step 3: open-system authentication and association, both on the channel held by the ROC
     m3log("sta mac %02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     int rc = m3Auth();
     m3Publish(rc ? "auth-fail" : "auth-ok");
+    m3log("m3Auth rc=%d", rc);
     if (!rc) {
         m3reachedAssoc = true;
         rc = m3Assoc();
         m3Publish(rc ? "assoc-fail" : "assoc-ok");
+        m3log("m3Assoc rc=%d", rc);
     }
 
     // step 4: BSS up, station state "associated", 4-way handshake with key install, Ethernet interface

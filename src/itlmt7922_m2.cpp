@@ -215,13 +215,13 @@ int itlmt7922::m2Run()
     publishService();
     rc=m3HwPrep(); if (rc) return rc;
     uint8_t dev[16]={}; put16(dev+4,0); put16(dev+6,12); dev[8]=1; memcpy(dev+10,mac,6);
-    rc=uniSend(1,dev,sizeof(dev),false,event,sizeof(event),&length,5000);
+    rc=uniSend(1,dev,sizeof(dev),false,event,sizeof(event),&length,is_mt7902?1000:5000);
     m2log("DEV_INFO rc=%d len=%u",rc,length);
     if (rc && !is_mt7902) return rc;
 
     uint8_t bss[36]={}; uint8_t *b=bss+4;
     put16(b+2,32); b[4]=1; put32(b+8,0x10001); b[12]=1; put16(b+20,19); put16(b+26,19);
-    rc=uniSend(2,bss,sizeof(bss),false,event,sizeof(event),&length,5000);
+    rc=uniSend(2,bss,sizeof(bss),false,event,sizeof(event),&length,is_mt7902?1000:5000);
     m2log("BSS_INFO rc=%d len=%u",rc,length);
     if (rc && !is_mt7902) return rc;
 

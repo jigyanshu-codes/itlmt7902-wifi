@@ -581,7 +581,7 @@ void itlmt7922::m3Supervise()
             // (the menu bar app's auto-join of its own saved networks runs on those scans).
             bool fresh = haveUser && !everUp && fails == 0;
             bool probeAll = (lastProbeAll == 0) || (now - lastProbeAll >= 300000);
-            if (!fresh && !(c & CMD_SCAN) && !bootScan) { wifiScan(); now = nowMs(); }
+            if (!fresh && !(c & CMD_SCAN) && !bootScan && !is_mt7902) { wifiScan(); now = nowMs(); }
             bootScan = false;
             if (probeAll) lastProbeAll = now;
             candN = 0;
@@ -628,7 +628,7 @@ void itlmt7922::m3Supervise()
             if (njState == ITL_NATIVE_UP && !m3linkUp) njState = ITL_NATIVE_IDLE;   // link went away; a reconnect needs no new join
             if (wasUp) fails = 0;
             fails++;
-            static const uint32_t backoff[5] = { 1000, 3000, 5000, 10000, 30000 };
+            static const uint32_t backoff[5] = { 2000, 4000, 8000, 15000, 30000 };
             nextTry = nowMs() + backoff[fails < 5 ? fails : 4];
             const char *why = wasUp ? (m3lostWhy[0] ? m3lostWhy : "link lost") : failText(m3res);
             if (haveUser && !everUp && fails >= 3) {                     // a network the user picked never worked: stop trying
