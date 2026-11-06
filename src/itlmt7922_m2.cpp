@@ -214,18 +214,22 @@ int itlmt7922::m2Run()
     m2log("MAC=%02x:%02x:%02x:%02x:%02x:%02x",mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
     publishService();
     rc=m3HwPrep(); if (rc) return rc;
-    if (!is_mt7902) {
-        uint8_t dev[16]={}; put16(dev+4,0); put16(dev+6,12); dev[8]=1; memcpy(dev+10,mac,6);
-        rc=uniSend(1,dev,sizeof(dev),false,event,sizeof(event),&length,3000);
-        if (rc) return rc;
-        uint8_t bss[36]={}; uint8_t *b=bss+4;
-        put16(b+2,32); b[4]=1; put32(b+8,0x10001); b[12]=1; put16(b+20,19); put16(b+26,19);
-        rc=uniSend(2,bss,sizeof(bss),false,event,sizeof(event),&length,3000);
-        if (rc) return rc;
-    } else {
-        m2log("MT7902: proceed to scan");
-    }
-    return m2Scan(nullptr);
+    uint8_t dev[16]={}; put16(dev+4,0); put16(dev+6,12); dev[8]=1; memcpy(dev+10,mac,6);
+    rc=uniSend(1,dev,sizeof(dev),false,event,sizeof(event),&length,5000);
+    m2log("DEV_INFO rc=%d len=%u",rc,length);
+    if (rc && !is_mt7902) return rc;
+
+    uint8_t bss[36]={}; uint8_t *b=bss+4;
+    put16(b+2,32); b[4]=1; put32(b+8,0x10001); b[12]=1; put16(b+20,19); put16(b+26,19);
+    rc=uniSend(2,bss,sizeof(bss),false,event,sizeof(event),&length,5000);
+    m2log("BSS_INFO rc=%d len=%u",rc,length);
+    if (rc && !is_mt7902) return rc;
+
+    m2State("pre_scan");
+    int sRc=m2Scan(nullptr);
+    m2State("post_scan");
+    m2log("boot scan rc=%d aps=%d",sRc,nAps);
+    return 0;
 }
 void itlmt7922::m2log(const char *fmt, ...)
 {

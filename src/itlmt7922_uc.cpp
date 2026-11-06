@@ -528,7 +528,7 @@ void itlmt7922::m3Supervise()
     Net user = {};
     bool haveUser = false, want = nb > 0, everUp = false, away = false, bootScan = true;   // aps[] holds the M2 boot scan
     bool userNative = false;                                 // the current `user` network was asked for by the Family (ITL_NATIVE_JOIN)
-    uint32_t fails = 0, nextTry = 0, lastProbeAll = nowMs();
+    uint32_t fails = 0, nextTry = 0, lastProbeAll = 0;
     wifiNets();                                              // the boot scan (M2) already filled aps[]
     wifiState(want ? "connecting" : "idle", "");
     m3log("supervisor: %d configured network(s)", nb);
@@ -580,7 +580,7 @@ void itlmt7922::m3Supervise()
             // (hidden SSIDs never show in a wildcard scan). Out of range of all of them: idle, wildcard scan every 30 s
             // (the menu bar app's auto-join of its own saved networks runs on those scans).
             bool fresh = haveUser && !everUp && fails == 0;
-            bool probeAll = now - lastProbeAll >= 300000;
+            bool probeAll = (lastProbeAll == 0) || (now - lastProbeAll >= 300000);
             if (!fresh && !(c & CMD_SCAN) && !bootScan) { wifiScan(); now = nowMs(); }
             bootScan = false;
             if (probeAll) lastProbeAll = now;
