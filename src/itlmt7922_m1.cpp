@@ -383,7 +383,7 @@ int itlmt7922::m1Run()
     dmaDisable();
     if ((rdA(MT_WFDMA0_GLO_CFG)&(GLO_TX_DMA_BUSY|GLO_RX_DMA_BUSY))!=0) return kTimeout;
     m1log("stage3 DMA disabled");
-    uint32_t wmTxq = is_mt7902 ? MT7902_TXQ_MCU_WM : MT7922_TXQ_MCU_WM;
+    int wmTxq = is_mt7902 ? MT7902_TXQ_MCU_WM : MT7922_TXQ_MCU_WM;
     int rxEvtSize = is_mt7902 ? MT7902_RX_MCU_RING_SIZE : 8;
     if (!ringInit(txWm,wmTxq,MT_TX_RING_BASE,256,false) || !ringInit(txFwdl,16,MT_TX_RING_BASE,128,false) ||
         !ringInit(rxEvt,0,MT_RX_EVENT_RING_BASE,rxEvtSize,true) ||
