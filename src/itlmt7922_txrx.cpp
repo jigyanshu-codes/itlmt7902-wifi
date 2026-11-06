@@ -75,7 +75,7 @@ bool itlmt7922::m3Tx(const uint8_t *frame, uint32_t len, uint8_t type,
     options.sequence = (int16_t)o.sn;
     options.queue = o.rateAdapt && type == 2 ? 1 : o.qidx; // AC_BE -> LMAC AC01, independent of BA level.
     options.tid = o.tid & 7;
-    options.spe_index = 24; // Connac2 duplicate WF0+WF1 fixed-rate path.
+    options.spe_index = is_mt7902 ? 0 : 24; // MT7902 single antenna path 0; MT7922 duplicate WF0+WF1.
     options.rate_adapt = o.rateAdapt;
     options.protect = o.protect;
     options.aggregate = o.aggr;

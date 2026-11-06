@@ -501,17 +501,20 @@ struct M3Lock {
 
 // Looks for a management frame (header after the RXD groups) from the AP to us whose fc byte 0 is m3wantFc.
 
-// Sends `frame` (up to 4 times, 150 ms apart) until a frame with fc byte 0 == wantFc comes back.
+// Sends `frame` (up to 2 times on MT7902, 500 ms apart) until a frame with fc byte 0 == wantFc comes back.
 bool itlmt7922::m3Xchg(const uint8_t *frame, uint32_t len, uint8_t subtype, uint8_t wantFc, uint32_t waitMs)
 {
     m3rxLen = 0;
     m3wantFc = wantFc;
     bool got = false;
-    for (int attempt = 1; attempt <= 4 && !got && !shouldStop() && !firmwareFault; attempt++) {
+    const int maxAttempts = is_mt7902 ? 2 : 4;
+    const uint32_t timeoutMs = is_mt7902 ? (waitMs < 500 ? 500 : waitMs) : waitMs;
+    for (int attempt = 1; attempt <= maxAttempts && !got && !shouldStop() && !firmwareFault; attempt++) {
         bool ok = m3Tx(frame, len, 0, subtype);
         m3log("tx %02x len=%u #%d %s", frame[0], len, attempt, ok ? "queued" : "FAILED");
-        for (uint32_t i = 0; i < waitMs && !m3rxLen && !shouldStop() && !firmwareFault; i++) m3Pump(1);
+        for (uint32_t i = 0; i < timeoutMs && !m3rxLen && !shouldStop() && !firmwareFault; i++) m3Pump(1);
         got = m3rxLen != 0;
+        if (!got && attempt < maxAttempts) IOSleep(200);
     }
     m3wantFc = 0;
     if (!got) m3log("no response fc=%02x rxpk=%u txcpu=%u txdma=%u", wantFc, rxPkts, txData.head, rd(txData.regs + Q_DMA_IDX) & 0xffff);
@@ -765,11 +768,14 @@ void itlmt7922::m3Teardown()
     ethLink(false);
     if (shouldStop() || firmwareFault) { m3dataOn=false; return; }
     baReset();
-    uint8_t f[26];
-    m3Hdr(f, 0xc0, tgtBssid, mac);                           // deauthentication, reason 3: station is leaving
-    put16(f + 24, 3);
-    m3Tx(f, sizeof(f), 0, 12);
-    IOSleep(100);
+    if (m3reachedAssoc) {
+        uint8_t f[26];
+        m3Hdr(f, 0xc0, tgtBssid, mac);                           // deauthentication, reason 3: station is leaving
+        put16(f + 24, 3);
+        m3Tx(f, sizeof(f), 0, 12);
+        IOSleep(100);
+    }
+    m3reachedAssoc = false;
     m3Bss(false);                                            // BSS back to "not connected"
     m3dataOn = false;
     m3cipher = 0;

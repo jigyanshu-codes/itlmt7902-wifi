@@ -528,7 +528,7 @@ void itlmt7922::m3Supervise()
     Net user = {};
     bool haveUser = false, want = nb > 0, everUp = false, away = false, bootScan = true;   // aps[] holds the M2 boot scan
     bool userNative = false;                                 // the current `user` network was asked for by the Family (ITL_NATIVE_JOIN)
-    uint32_t fails = 0, nextTry = 0, lastProbeAll = 0;
+    uint32_t fails = 0, nextTry = nowMs() + (is_mt7902 ? 8000 : 0), lastProbeAll = 0;
     wifiNets();                                              // the boot scan (M2) already filled aps[]
     wifiState(want ? "connecting" : "idle", "");
     m3log("supervisor: %d configured network(s)", nb);
@@ -629,7 +629,8 @@ void itlmt7922::m3Supervise()
             if (wasUp) fails = 0;
             fails++;
             static const uint32_t backoff[5] = { 2000, 4000, 8000, 15000, 30000 };
-            nextTry = nowMs() + backoff[fails < 5 ? fails : 4];
+            static const uint32_t backoff_7902[5] = { 10000, 15000, 20000, 30000, 60000 };
+            nextTry = nowMs() + (is_mt7902 ? backoff_7902[fails < 5 ? fails : 4] : backoff[fails < 5 ? fails : 4]);
             const char *why = wasUp ? (m3lostWhy[0] ? m3lostWhy : "link lost") : failText(m3res);
             if (haveUser && !everUp && fails >= 3) {                     // a network the user picked never worked: stop trying
                 haveUser = false;
