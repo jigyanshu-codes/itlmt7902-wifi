@@ -17,3 +17,4 @@ This release addresses MT7902 (0x7902 / 14c3:7902) initialization and connection
 - 确保即使开机被动全局扫描超时，连接监管后台任务也能正常启动，使配置的网络可通过定向探测完成扫描并建立 WPA2 连接。
 - 监管任务开机首次循环立即发起定向探测，加速连接已知网络。
 - 增加 RX0 与 RXdata 环形缓冲区的硬件 DMA 状态日志。
+

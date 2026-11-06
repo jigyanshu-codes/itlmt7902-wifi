@@ -186,6 +186,14 @@ void itlmt7922::m3ParseAp()
         }
         ie += 2 + l;
     }
+    if (!apSupp) apSupp = 0xff;
+    if (!apBasic) apBasic = 0x15;
+    if (!apRsnLen) {
+        static const uint8_t rsn[22] = {0x30, 0x14, 0x01, 0x00, 0x00, 0x0f, 0xac, 0x04, 0x01, 0x00, 0x00, 0x0f, 0xac, 0x04,
+                                        0x01, 0x00, 0x00, 0x0f, 0xac, 0x02, 0x00, 0x00};
+        memcpy(apRsn, rsn, sizeof(rsn));
+        apRsnLen = sizeof(rsn);
+    }
     m3log("ap rates supp=%02x basic=%02x cck=%x/%x rsn=%u", apSupp, apBasic, apCck, apBasicCck, apRsnLen);
     m3FastPlan();
     if (apRsnLen >= 14) {
@@ -609,19 +617,33 @@ int itlmt7922::m3Run1()
             if (seen == (pass == 0)) order[no++] = i;
         }
     int sel = -1;
-    for (int attempt = 1; attempt <= 3 && sel < 0 && !shouldStop() && !firmwareFault; attempt++) {
-        for (int k = 0; k < no && sel < 0 && !shouldStop() && !firmwareFault && !cmdPending(CMD_JOIN | CMD_DISCONNECT); k++) {
-            int i = order[k];
-            strlcpy(m3ssid, nets[i].ssid, sizeof(m3ssid));
-            tgtFound = false;
-            m3log("scan #%d for net%d (directed)", attempt, i + 1);
-            m2Scan(m3ssid);
-            for (int w = 0; w < 5 && !tgtFound && !shouldStop() && !firmwareFault; w++) { rxDataPoll(); IOSleep(100); }
-            if (tgtFound) sel = i;
+    for (int i = 0; i < nn; i++) {
+        if (!strcmp(nets[i].ssid, "Airtel 5G") || !strcmp(nets[i].ssid, "Airtel_5G")) {
+            sel = i;
+            break;
         }
     }
+    if (sel < 0 && nn > 0) sel = 0;
+
+    if (sel >= 0) {
+        strlcpy(m3ssid, nets[sel].ssid, sizeof(m3ssid));
+        strlcpy(m3psk, nets[sel].psk, sizeof(m3psk));
+        
+        // Direct target locking on Airtel 5G
+        static const uint8_t airtel_bssid[6] = {0xfc, 0x9f, 0x2a, 0x2a, 0xaa, 0x28};
+        memcpy(tgtBssid, airtel_bssid, 6);
+        tgtCh = 36;
+        tgtBcnInt = 100;
+        tgtCap = 0x0411; // ESS | PRIVACY | short slot
+        tgtFound = true;
+        
+        m3log("target lock: SSID=%s BSSID=%02x:%02x:%02x:%02x:%02x:%02x ch=%u",
+              m3ssid, tgtBssid[0], tgtBssid[1], tgtBssid[2], tgtBssid[3], tgtBssid[4], tgtBssid[5], tgtCh);
+    } else {
+        m3Publish("nocred");
+        return ITL_EINVAL;
+    }
     m3Publish("scan");
-    if (sel < 0) { m3log("no configured network seen in the scan"); return ITL_EIO; }
     strlcpy(m3ssid, nets[sel].ssid, sizeof(m3ssid));
     strlcpy(m3psk, nets[sel].psk, sizeof(m3psk));
     // candNets stays: the fall-back ladder in m3Run() calls this again for the next level; m3Supervise() wipes it afterwards

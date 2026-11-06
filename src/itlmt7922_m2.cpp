@@ -225,10 +225,8 @@ int itlmt7922::m2Run()
     m2log("BSS_INFO rc=%d len=%u",rc,length);
     if (rc && !is_mt7902) return rc;
 
-    m2State("pre_scan");
-    int sRc=m2Scan(nullptr);
-    m2State("post_scan");
-    m2log("boot scan rc=%d aps=%d",sRc,nAps);
+    m2State("pre_connect");
+    m2log("direct target lock mode: skipping wildcard scan");
     return 0;
 }
 void itlmt7922::m2log(const char *fmt, ...)

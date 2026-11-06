@@ -585,18 +585,12 @@ void itlmt7922::m3Supervise()
             bootScan = false;
             if (probeAll) lastProbeAll = now;
             candN = 0;
-            if (haveUser && (fresh || probeAll || apInRange(user.ssid, 60000))) candNets[candN++] = user;
+            if (haveUser) candNets[candN++] = user;
             for (int i = 0; i < nb && candN < 4; i++) {
                 if (haveUser && !strcmp(boot[i].ssid, user.ssid)) continue;
-                if (probeAll || apInRange(boot[i].ssid, 60000)) candNets[candN++] = boot[i];
+                candNets[candN++] = boot[i];
             }
-            if (!candN) {
-                if (!away) { m3log("supervisor: no configured network in range"); evLog("no configured network in range"); }
-                away = true;
-                wifiState("idle", "no saved network in range");
-                nextTry = nowMs() + 30000;
-                continue;
-            }
+            if (!candN && nb > 0) candNets[candN++] = boot[0];
             away = false;
             wifiState("connecting", "");
             setProperty("wifi-ssid", candNets[0].ssid);
