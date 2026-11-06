@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 FIRMWARE = {
     'WIFI_MT7922_patch_mcu_1_1_hdr.bin': '7fc9075d6d54b31e0539734614ca971fa52caf41b642a3000c8a4501591a4d98',
     'WIFI_RAM_CODE_MT7922_1.bin': 'd100e5e04c324fc8da6302112d1e0b4fac952286447d2419eabcd8fb0a1f5b93',
+    'WIFI_MT7902_patch_mcu_1_1_hdr.bin': '21c2a14c91b4e6576b8301a2a4f73697d20a424bd8484972832bdb5933907b72',
+    'WIFI_RAM_CODE_MT7902_1.bin': '1afb06d3c946a19ea6d735fa5e7f3062ce527f44e26b851e7c66db454c4a9f39',
 }
 SOURCE_DIRS = {'src', 'codec', 'app', 'tests', 'fw', 'scripts', 'docs', 'licenses', '.github'}
 SOURCE_FILES = {

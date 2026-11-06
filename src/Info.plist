@@ -27,7 +27,7 @@
 			<key>IOClass</key>
 			<string>itlmt7922</string>
 			<key>IOPCIMatch</key>
-			<string>0x061614c3 0x792214c3</string>
+			<string>0x061614c3 0x792214c3 0x790214c3</string>
 			<key>IOProbeScore</key>
 			<integer>2000</integer>
 			<key>IOProviderClass</key>

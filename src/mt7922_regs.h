@@ -78,6 +78,7 @@
 #define Q_DMA_IDX 0xc
 #define MT7922_TXQ_BAND0 0
 #define MT7922_TXQ_MCU_WM 17
+#define MT7902_TXQ_MCU_WM 15
 #define MT7922_TXQ_FWDL 16
 #define MT_DMA_CTL_SD_LEN0(l) (((uint32_t)(l) & 0x3fffu) << 16)
 #define MT_DMA_CTL_LAST_SEC0 (1u << 30)

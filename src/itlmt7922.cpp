@@ -143,7 +143,7 @@ void itlmt7922::dumpState()
     uint32_t rev  = rdMapped(MT_HW_REV);
     uint32_t lp   = rd(0x0e0000u + (MT_CONN_ON_LPCTL - 0x7c060000u));
     note("CHIP=%08x REV=%08x LP=%08x", chip, rev, lp);
-    IOLog("itlmt7922: ASIC revision: %04x%02x (expect 7922xx)\n", chip & 0xffff, rev & 0xff);
+    IOLog("itlmt7922: ASIC revision: %04x%02x (expect 7922xx or 7902xx)\n", chip & 0xffff, rev & 0xff);
 }
 
 // Debug aid: with boot-arg mt7922_hold=<seconds> repeat the log on the verbose console so it can be photographed.
@@ -184,7 +184,7 @@ bool itlmt7922::start(IOService *provider)
     uint16_t did = pci->configRead16(kIOPCIConfigDeviceID);
     uint16_t cmd = pci->configRead16(kIOPCIConfigCommand);
     note("start %04x:%04x cmd=%04x",vid,did,cmd);
-    if (vid!=0x14c3 || (did!=0x0616 && did!=0x7922)) goto fail;
+    if (vid!=0x14c3 || (did!=0x0616 && did!=0x7922 && did!=0x7902)) goto fail;
     if (PE_parse_boot_argn("mt7922_stage",&stage,sizeof(stage))) diagnosticStage=stage<=3?stage:0;
     setProperty("diagnostic-stage",diagnosticStage,32);
 
@@ -208,7 +208,9 @@ bool itlmt7922::start(IOService *provider)
     note("own OK");
     chip=rdA(MT_HW_CHIPID);
     dumpState();
-    if ((chip&0xffff)!=0x7922) { note("unsupported ASIC"); goto fail; }
+    chipId = (chip & 0xffff);
+    if (chipId != 0x7922 && chipId != 0x7902) { note("unsupported ASIC"); goto fail; }
+    is_mt7902 = (chipId == 0x7902);
 
     holdLog();
 

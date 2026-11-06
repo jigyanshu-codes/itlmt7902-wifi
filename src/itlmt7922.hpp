@@ -79,6 +79,8 @@ private:
     uint32_t diagnosticStage = 3;
     bool shouldStop() const { return __atomic_load_n(&stopping, __ATOMIC_ACQUIRE); }
     bool nativeMode = false;
+    bool is_mt7902 = false;
+    uint16_t chipId = 0;
     IOLock *nativeLock = nullptr;
     ItlNativeSink nativeSink = {};
     IOPCIDevice *pci = nullptr;

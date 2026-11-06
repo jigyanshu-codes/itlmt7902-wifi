@@ -7,8 +7,10 @@
 #include <libkern/libkern.h>
 
 extern "C" {
-extern const uint8_t itl_fw_patch[], itl_fw_patch_end[];
-extern const uint8_t itl_fw_ram[], itl_fw_ram_end[];
+extern const uint8_t itl_fw_patch_7922[], itl_fw_patch_7922_end[];
+extern const uint8_t itl_fw_ram_7922[], itl_fw_ram_7922_end[];
+extern const uint8_t itl_fw_patch_7902[], itl_fw_patch_7902_end[];
+extern const uint8_t itl_fw_ram_7902[], itl_fw_ram_7902_end[];
 }
 
 static const int kIo = -5, kInvalid = -22, kTimeout = -110, kStopped = -125;
@@ -163,7 +165,8 @@ void itlmt7922::dmaEnable()
     for (unsigned i=0;i<5;i++) wrA(MT_WFDMA0_RX_RING_EXT_CTRL(rxIds[i]),((0x40u*i)<<16)|4);
     for (unsigned i=0;i<7;i++) wrA(MT_WFDMA0_TX_RING_EXT_CTRL(i),((0x140u+0x40u*i)<<16)|4);
     wrA(MT_WFDMA0_TX_RING_EXT_CTRL(16),(0x340u<<16)|4);
-    wrA(MT_WFDMA0_TX_RING_EXT_CTRL(17),(0x380u<<16)|4);
+    uint32_t wmTxq = is_mt7902 ? MT7902_TXQ_MCU_WM : MT7922_TXQ_MCU_WM;
+    wrA(MT_WFDMA0_TX_RING_EXT_CTRL(wmTxq),(0x380u<<16)|4);
     wrA(MT_WFDMA0_RST_DTX_PTR,0xffffffffu);
     wrA(MT_WFDMA0_PRI_DLY_INT_CFG0,0);
     rmwA(MT_WFDMA0_GLO_CFG,0,GLO_TX_WB_DDONE | GLO_FIFO_LITTLE_ENDIAN | GLO_CLK_GAT_DIS |
@@ -227,6 +230,7 @@ int itlmt7922::mcuSend(uint32_t cmd,const void *payload,size_t length,bool wantR
     do {
         itl_ring *events[]={&rxEvt,&rxWa};
         for (unsigned q=0;q<2;q++) {
+            if (!events[q]->n) continue;
             const uint8_t *ev; uint32_t n; int bi;
             for (unsigned budget=0;budget<64 && ringPeek(*events[q],&ev,&n,&bi);budget++) {
                 uint32_t type=n>=4?le32(ev)>>27:0xffffffffu;
@@ -286,7 +290,9 @@ int itlmt7922::initDownload(uint32_t addr,uint32_t length,uint32_t mode)
 
 int itlmt7922::loadPatch()
 {
-    const uint8_t *fw=itl_fw_patch; size_t size=(size_t)(itl_fw_patch_end-itl_fw_patch);
+    const uint8_t *fw = is_mt7902 ? itl_fw_patch_7902 : itl_fw_patch_7922;
+    size_t size = is_mt7902 ? (size_t)(itl_fw_patch_7902_end - itl_fw_patch_7902)
+                            : (size_t)(itl_fw_patch_7922_end - itl_fw_patch_7922);
     if (size<PATCH_HDR_SIZE) return kInvalid;
     uint32_t regions=be32(fw+44);
     if (!regions || regions>(size-PATCH_HDR_SIZE)/PATCH_SEC_SIZE) return kInvalid;
@@ -329,7 +335,9 @@ int itlmt7922::loadPatch()
 
 int itlmt7922::loadRam()
 {
-    const uint8_t *fw=itl_fw_ram; size_t size=(size_t)(itl_fw_ram_end-itl_fw_ram);
+    const uint8_t *fw = is_mt7902 ? itl_fw_ram_7902 : itl_fw_ram_7922;
+    size_t size = is_mt7902 ? (size_t)(itl_fw_ram_7902_end - itl_fw_ram_7902)
+                            : (size_t)(itl_fw_ram_7922_end - itl_fw_ram_7922);
     if (size<FW_TRAILER_SIZE) return kInvalid;
     const uint8_t *trailer=fw+size-FW_TRAILER_SIZE;
     uint32_t regions=trailer[2];
@@ -362,7 +370,8 @@ int itlmt7922::m1Run()
 {
     if (shouldStop()) return kStopped;
     firmwareFault=false;
-    if ((rdA(MT_HW_CHIPID)&0xffff)!=0x7922) return kIo;
+    uint32_t asic = rdA(MT_HW_CHIPID) & 0xffff;
+    if (asic != 0x7922 && asic != 0x7902) return kIo;
     pci->setBusMasterEnable(true); busMasterOn=true;
     m1log("stage1 bus master enabled");
     rmwA(MT_WFSYS_SW_RST_B,WFSYS_SW_RST_B,0); IOSleep(50);
@@ -374,8 +383,11 @@ int itlmt7922::m1Run()
     dmaDisable();
     if ((rdA(MT_WFDMA0_GLO_CFG)&(GLO_TX_DMA_BUSY|GLO_RX_DMA_BUSY))!=0) return kTimeout;
     m1log("stage3 DMA disabled");
-    if (!ringInit(txWm,17,MT_TX_RING_BASE,256,false) || !ringInit(txFwdl,16,MT_TX_RING_BASE,128,false) ||
-        !ringInit(rxEvt,0,MT_RX_EVENT_RING_BASE,8,true) || !ringInit(rxWa,0,MT_RX_EVENT_RUNTIME_RING_BASE,512,true) ||
+    uint32_t wmTxq = is_mt7902 ? MT7902_TXQ_MCU_WM : MT7922_TXQ_MCU_WM;
+    int rxEvtSize = is_mt7902 ? MT7902_RX_MCU_RING_SIZE : 8;
+    if (!ringInit(txWm,wmTxq,MT_TX_RING_BASE,256,false) || !ringInit(txFwdl,16,MT_TX_RING_BASE,128,false) ||
+        !ringInit(rxEvt,0,MT_RX_EVENT_RING_BASE,rxEvtSize,true) ||
+        (!is_mt7902 && !ringInit(rxWa,0,MT_RX_EVENT_RUNTIME_RING_BASE,512,true)) ||
         (m3On && !ringInit(txData,MT7922_TXQ_BAND0,MT_TX_RING_BASE,2048,false,true))) { m1log("DMA allocation failed"); return kIo; }
     if (m2On) {
         static const int sizes[]={1536,512,256};
@@ -403,7 +415,7 @@ int itlmt7922::m1Run()
         m1log("firmware-download-ready state missing MISC=%08x",rdA(MT_CONN_ON_MISC));
         return kTimeout;
     }
-    m1log("stage6 loading MT7922 patch");
+    m1log("stage6 loading %s patch", is_mt7902 ? "MT7902" : "MT7922");
     rc=loadPatch(); m1log("stage7 patch rc=%d",rc); if (rc) return rc;
     rc=loadRam(); m1log("stage8 RAM rc=%d",rc); if (rc) return rc;
     if (!pollA(MT_CONN_ON_MISC,MT_TOP_MISC2_FW_N9_RDY,MT_TOP_MISC2_FW_N9_RDY,1500)) { m1log("firmware ready timeout MISC=%08x",rdA(MT_CONN_ON_MISC)); return kTimeout; }
