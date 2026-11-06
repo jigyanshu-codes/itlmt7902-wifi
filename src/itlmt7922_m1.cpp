@@ -236,9 +236,18 @@ int itlmt7922::mcuSend(uint32_t cmd,const void *payload,size_t length,bool wantR
                 uint32_t type=n>=4?le32(ev)>>27:0xffffffffu;
                 uint32_t flag=n>=4?(le32(ev)>>16)&15u:0;
                 bool frame=type==2 || type==8 || (type==7 && flag==1);
-                bool match=type==7 && !frame && n>=MCU_RX_HEADER_SIZE && !(ev[30]&4u) && ev[29]==seq;
-                if (match && unified)
-                    match=n>=44 && ev[28]==1 && ev[36]==(uint8_t)cmd;
+                bool match=false;
+                if (type==7 && !frame && n>=MCU_RX_HEADER_SIZE) {
+                    if (unified) {
+                        match=n>=44 && (ev[36]==(uint8_t)(cmd&0xff) || ev[29]==seq);
+                    } else {
+                        match=!(ev[30]&4u) && ev[29]==seq;
+                    }
+                }
+                if (type==7 && !frame && n>=MCU_RX_HEADER_SIZE && unified) {
+                    m1log("RX0 MCU: n=%u eid=%02x seq=%u opt=%02x cid=%02x (want cmd=%02x seq=%u match=%d)",
+                          n, ev[28], ev[29], ev[30], n>=37?ev[36]:0, (unsigned)(cmd&0xff), seq, match?1:0);
+                }
                 handleRxPacket(ev,n);
                 if (firmwareFault) { ringRelease(*events[q],bi); return kIo; }
                 if (match) {

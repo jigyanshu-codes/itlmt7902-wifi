@@ -107,7 +107,7 @@ int itlmt7922::m3Cmd(uint8_t cid, const void *payload, size_t plen, const char *
     uint32_t evl = 0;
     int rc = uniSend(cid, payload, plen, false, ev, sizeof(ev), &evl, 3000);
     int status = evl >= 44 ? (int)le32(ev + 40) : -1;
-    if (!rc && (evl < 44 || ev[28] != 1 || ev[36] != cid || status)) rc = ITL_EIO;
+    if (!rc && (evl < 44 || status != 0)) rc = ITL_EIO;
     m3log("%s rc=%d st=%d", name, rc, status);
     return rc;
 }
@@ -347,7 +347,7 @@ int itlmt7922::m3Bss(bool enable)
     uint8_t *q=m.tlv(15,8); q[4]=1;
     m.b[2]=m.b[3]=0; // BSS header has reserved bytes, unlike STA's TLV count.
     int rc=m3Cmd(UNI_BSS_INFO_UPDATE,m.b,m.n,enable?"bss(enable)":"bss(add)");
-    if (rc) return rc;
+    if (rc && !is_mt7902) return rc;
     // Connac2 RLM uses short_st@10, ht_op_info@11, sco@12, Linux band@13.
     m.init(4); m.b[0]=M3_BSS_IDX;
     uint8_t *r=m.tlv(2,16); r[4]=tgtCh; r[5]=fastActive?fastCenter:tgtCh;
@@ -355,7 +355,7 @@ int itlmt7922::m3Bss(bool enable)
     r[10]=1; r[11]=r[7]?4:0; r[12]=r[4]<r[5]?1:r[4]>r[5]?3:0; r[13]=g2?0:1;
     m.b[2]=m.b[3]=0;
     rc=m3Cmd(UNI_BSS_INFO_UPDATE,m.b,m.n,"bss(rlm)");
-    if (rc) return rc;
+    if (rc && !is_mt7902) return rc;
     // Initialize the BSS multicast WCID's nested WTBL before GTK installation.
     if (!enable) {
         m.init(8); m.b[0]=M3_BSS_IDX; m.b[1]=M3_BMC_WCID; m.b[4]=1; m.b[5]=0xe;
@@ -365,7 +365,7 @@ int itlmt7922::m3Bss(bool enable)
         uint8_t *rx=g+20; put16(rx,1); put16(rx+2,12); rx[5]=rx[6]=rx[7]=1;
         uint8_t *tr=rx+12; put16(tr,6); put16(tr+2,8); tr[4]=1; tr[6]=1;
         rc=m3Cmd(UNI_STA_REC_UPDATE,m.b,m.n,"bmc(wtbl)");
-        if (rc) return rc;
+        if (rc && !is_mt7902) return rc;
     }
     return m3Edca();
 }
@@ -674,13 +674,13 @@ int itlmt7922::m3Run1()
     if (prepRc) { m3Publish("hw-prep-fail"); return prepRc; }
     int setupRc=m3Bss(false);
     m3log("m3Bss rc=%d", setupRc);
-    if (!setupRc) {
-        setupRc=m3Sta(0,true,0);
-        m3log("m3Sta rc=%d", setupRc);
+    if (!setupRc || is_mt7902) {
+        int staRc=m3Sta(0,true,0);
+        m3log("m3Sta rc=%d", staRc);
     }
-    if (!setupRc) {
-        setupRc=m3Roc(true);
-        m3log("m3Roc rc=%d", setupRc);
+    if (!setupRc || is_mt7902) {
+        int rocRc=m3Roc(true);
+        m3log("m3Roc rc=%d", rocRc);
     }
     if (setupRc && !is_mt7902) return setupRc;
     for (int i = 0; i < 300 && !rocGrant && !shouldStop() && !firmwareFault; i++) m3Pump(1);
